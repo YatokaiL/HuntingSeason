@@ -1,0 +1,10 @@
+package ru.rsreu.Prilepskij0215.model.events;
+
+public enum EventType {
+    SHOOT, ANIMAL_ESCAPED, GAME_OVER, BONUS_COLLECTED, ANIMAL_ATTACK,
+    ANIMAL_HIT,
+    SHOOT_DETAIL,
+    ANIMAL_ATTACK_DETAIL,
+    GAME_STATE_UPDATE
+
+}
