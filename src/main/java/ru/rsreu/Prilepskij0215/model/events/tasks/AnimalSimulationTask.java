@@ -27,6 +27,11 @@ public class AnimalSimulationTask implements Runnable {
     private int directionChangeCounter = 0;
     private final int directionChangeFrequency;
 
+    private long lastAttackTime = 0;
+    private final int attackCooldown = 3000;
+    private final int attackRange;
+    private final int detectionRange;
+
     public AnimalSimulationTask(Animal animal, BlockingQueue<GameEvent> eventQueue, Supplier<Hunter> hunterSupplier) {
         this.animal = animal;
         this.random = new Random();
@@ -34,6 +39,9 @@ public class AnimalSimulationTask implements Runnable {
         this.hunterSupplier = hunterSupplier;
 
         this.directionChangeFrequency = getDirectionChangeFrequency(animal.getType());
+
+        this.attackRange = getAttackRange(animal.getType());
+        this.detectionRange = getDetectionRange(animal.getType());
 
         changeDirection();
 
@@ -53,6 +61,16 @@ public class AnimalSimulationTask implements Runnable {
                     break;
                 }
 
+                if (animal.getType().isAggressive()) {
+                    if (tryAttackPlayer()) {
+                        Thread.sleep(1000);
+                        continue;
+                    } else if (chasePlayer()) {
+                        Thread.sleep(getSleepTime(animal.getType()));
+                        continue;
+                    }
+                }
+
                 performNormalMovement();
 
                 int sleepTime = getSleepTime(animal.getType());
@@ -65,6 +83,74 @@ public class AnimalSimulationTask implements Runnable {
             }
         }
         logger.fine(String.format("Animal simulation %s completed", animal.getType()));
+    }
+
+    private boolean tryAttackPlayer() {
+        Hunter hunter = hunterSupplier.get();
+        if (hunter == null) return false;
+
+        int distance = calculateDistance(animal.getX(), animal.getY(), hunter.getX(), hunter.getY());
+
+        if (distance <= attackRange && System.currentTimeMillis() - lastAttackTime > attackCooldown) {
+            eventQueue.offer(new GameEvent(EventType.ANIMAL_ATTACK, animal.getX(), animal.getY(), animal.getType().getAttackDamage()));
+            lastAttackTime = System.currentTimeMillis();
+
+            logger.info(String.format("%s attacked player! Damage: %d",
+                    animal.getType(), animal.getType().getAttackDamage()));
+            return true;
+        }
+
+        return false;
+    }
+
+    private boolean chasePlayer() {
+        Hunter hunter = hunterSupplier.get();
+        if (hunter == null) return false;
+
+        int distance = calculateDistance(animal.getX(), animal.getY(), hunter.getX(), hunter.getY());
+
+        if (distance <= detectionRange) {
+            int deltaX = hunter.getX() - animal.getX();
+            int deltaY = hunter.getY() - animal.getY();
+
+            double length = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
+            if (length > 0) {
+                currentDirectionX = (int)(deltaX / length * 3);
+                currentDirectionY = (int)(deltaY / length * 3);
+            }
+
+            int chaseSpeed = getMoveDistance(animal.getType()) * 2;
+            int newX = Math.max(8, Math.min(maxX, animal.getX() + currentDirectionX * chaseSpeed));
+            int newY = Math.max(8, Math.min(maxY, animal.getY() + currentDirectionY * chaseSpeed));
+
+            animal.move(newX, newY);
+
+            logger.finest(String.format("%s stalking the player. Distance: %d",
+                    animal.getType(), distance));
+            return true;
+        }
+
+        return false;
+    }
+
+    private int calculateDistance(int x1, int y1, int x2, int y2) {
+        return (int) Math.sqrt(Math.pow(x2 - x1, 2) + Math.pow(y2 - y1, 2));
+    }
+
+    private int getAttackRange(AnimalType type) {
+        switch (type) {
+            case WOLF: return 40;
+            case BEAR: return 50;
+            default: return 0;
+        }
+    }
+
+    private int getDetectionRange(AnimalType type) {
+        switch (type) {
+            case WOLF: return 200;
+            case BEAR: return 150;
+            default: return 0;
+        }
     }
 
     private void performNormalMovement() {
