@@ -11,6 +11,7 @@ import javafx.scene.paint.Color;
 import javafx.scene.text.Font;
 import javafx.stage.Stage;
 import ru.rsreu.Prilepskij0215.controller.GameController;
+import ru.rsreu.Prilepskij0215.model.entities.WeaponType;
 import ru.rsreu.Prilepskij0215.model.events.GameEvent;
 import ru.rsreu.Prilepskij0215.model.events.GameEventListener;
 
@@ -227,6 +228,19 @@ public class GameInterface implements GameEventListener {
                     int x = (int) event.getX();
                     int y = (int) event.getY();
                     controller.shoot(x, y);
+                    if (gameCanvas != null) {
+                        gameCanvas.onShotFired();
+                    }
+                }
+            });
+
+            gameCanvas.getCanvas().setOnScroll(event -> {
+                if (controller != null && !isPauseMenuVisible) {
+                    if (event.getDeltaY() > 0) {
+                        cycleWeaponForward();
+                    } else if (event.getDeltaY() < 0) {
+                        cycleWeaponBackward();
+                    }
                 }
             });
         }
@@ -235,6 +249,48 @@ public class GameInterface implements GameEventListener {
             gameCanvas.getCanvas().requestFocus();
             System.out.println("Initial canvas focus requested");
         }
+    }
+
+    private void cycleWeaponForward() {
+        WeaponType current = controller.getGameState().getPlayerWeapon().getType();
+        WeaponType next;
+
+        switch (current) {
+            case RIFLE: next = WeaponType.SHOTGUN; break;
+            case SHOTGUN: next = WeaponType.PISTOL; break;
+            case PISTOL: next = WeaponType.RIFLE; break;
+            default: next = WeaponType.RIFLE;
+        }
+
+        controller.switchWeapon(next);
+        if (gameCanvas != null) {
+            gameCanvas.onWeaponSwitch();
+        }
+
+        System.out.println("Weapon switched to: " + next +
+                ", Current ammo: " + controller.getGameState().getPlayerWeapon().getCurrentAmmo() +
+                ", Total ammo: " + controller.getGameState().getPlayerWeapon().getTotalAmmo());
+    }
+
+    private void cycleWeaponBackward() {
+        WeaponType current = controller.getGameState().getPlayerWeapon().getType();
+        WeaponType previous;
+
+        switch (current) {
+            case RIFLE: previous = WeaponType.PISTOL; break;
+            case SHOTGUN: previous = WeaponType.RIFLE; break;
+            case PISTOL: previous = WeaponType.SHOTGUN; break;
+            default: previous = WeaponType.RIFLE;
+        }
+
+        controller.switchWeapon(previous);
+        if (gameCanvas != null) {
+            gameCanvas.onWeaponSwitch();
+        }
+
+        System.out.println("Weapon switched to: " + previous +
+                ", Current ammo: " + controller.getGameState().getPlayerWeapon().getCurrentAmmo() +
+                ", Total ammo: " + controller.getGameState().getPlayerWeapon().getTotalAmmo());
     }
 
     private void togglePauseMenu() {

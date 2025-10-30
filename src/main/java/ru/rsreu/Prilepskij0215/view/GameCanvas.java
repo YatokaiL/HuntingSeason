@@ -2,11 +2,13 @@ package ru.rsreu.Prilepskij0215.view;
 
 import javafx.scene.canvas.Canvas;
 import javafx.scene.canvas.GraphicsContext;
+import javafx.scene.image.Image;
 import javafx.scene.paint.Color;
 import ru.rsreu.Prilepskij0215.controller.GameController;
 import ru.rsreu.Prilepskij0215.model.entities.Animal;
 import ru.rsreu.Prilepskij0215.model.entities.AnimalType;
 import ru.rsreu.Prilepskij0215.model.entities.BonusType;
+import ru.rsreu.Prilepskij0215.model.entities.WeaponType;
 
 import java.util.Random;
 
@@ -20,6 +22,14 @@ public class GameCanvas {
     private final int[][] bushes = new int[40][2];
     private final int[][] rocks = new int[15][2];
 
+    private Image rifleIcon;
+    private Image shotgunIcon;
+    private Image pistolIcon;
+
+    private long lastWeaponSwitchTime = 0;
+    private boolean isHUDVisible = true;
+    private long lastShotTime = 0;
+
     public GameCanvas(GameController controller) {
         this.controller = controller;
         this.canvas = new Canvas(1000, 800);
@@ -27,11 +37,23 @@ public class GameCanvas {
         this.gc = canvas.getGraphicsContext2D();
         this.random = new Random();
 
+        loadWeaponIcons();
+
         generateNatureElements();
     }
 
     public void update() {
         drawGameState();
+    }
+
+    private void loadWeaponIcons() {
+        try {
+            rifleIcon = new Image(getClass().getResourceAsStream("/images/weapons/rifle.png"));
+            shotgunIcon = new Image(getClass().getResourceAsStream("/images/weapons/shotgun.png"));
+            pistolIcon = new Image(getClass().getResourceAsStream("/images/weapons/pistol.png"));
+        } catch (Exception e) {
+            System.err.println("Не удалось загрузить иконки оружия: " + e.getMessage());
+        }
     }
 
     private void generateNatureElements() {
@@ -49,6 +71,11 @@ public class GameCanvas {
             rocks[i][0] = 20 + random.nextInt(960); // x координата
             rocks[i][1] = 20 + random.nextInt(760); // y координата
         }
+    }
+
+    public void onShotFired() {
+        lastShotTime = System.currentTimeMillis();
+        isHUDVisible = true;
     }
 
     private void drawGameState() {
@@ -128,6 +155,8 @@ public class GameCanvas {
                 }
             }
 
+            drawWeaponHUD();
+
             for (var bonus : gameMap.getBonuses()) {
                 gc.setFill(getBonusGlowColor(bonus.getType()));
                 gc.fillOval(bonus.getX() - 8, bonus.getY() - 8, 16, 16);
@@ -165,6 +194,94 @@ public class GameCanvas {
         }
 
         gc.fillText(aggressionText, x - 20, y - 30);
+    }
+
+    public void onWeaponSwitch() {
+        lastWeaponSwitchTime = System.currentTimeMillis();
+        isHUDVisible = true;
+    }
+
+
+    private void drawWeaponHUD() {
+        if (controller == null) return;
+
+        try {
+            var gameState = controller.getGameState();
+            if (gameState == null) return;
+
+            var weapon = gameState.getPlayerWeapon();
+            int hudX = 900;
+            int hudY = 700;
+
+            long timeSinceSwitch = System.currentTimeMillis() - lastWeaponSwitchTime;
+            long timeSinceShot = System.currentTimeMillis() - lastShotTime;
+
+            boolean showFromSwitch = timeSinceSwitch < 3000;
+            boolean showFromShot = timeSinceShot < 2000;
+
+            if (!showFromSwitch && !showFromShot && !isHUDVisible) {
+                return;
+            }
+
+            long mostRecentEvent = Math.max(lastWeaponSwitchTime, lastShotTime);
+            long timeSinceEvent = System.currentTimeMillis() - mostRecentEvent;
+
+            double alpha = 0.7;
+
+            if (timeSinceEvent < 500) {
+                alpha = 0.7 * (timeSinceEvent / 500.0);
+            } else if (timeSinceEvent > 2500 && timeSinceEvent <= 3000) {
+                alpha = 0.7 * (1.0 - (timeSinceEvent - 2500) / 500.0);
+            } else if (timeSinceEvent > 3000) {
+                alpha = 0.0;
+                isHUDVisible = false;
+                return;
+            }
+
+            alpha = Math.max(0.0, Math.min(0.7, alpha));
+
+            if (alpha <= 0.0) {
+                return;
+            }
+
+            gc.setFill(Color.rgb(0, 0, 0, alpha * 0.8));
+            gc.fillRoundRect(hudX - 130, hudY - 45, 120, 45, 10, 10);
+
+            gc.setStroke(Color.rgb(255, 255, 255, alpha));
+            gc.setLineWidth(2);
+            gc.strokeRoundRect(hudX - 130, hudY - 45, 120, 45, 10, 10);
+
+            Image weaponIcon = getWeaponIcon(weapon.getType());
+
+            if (weaponIcon != null) {
+                gc.setGlobalAlpha(alpha);
+                gc.drawImage(weaponIcon, hudX - 120, hudY - 35, 30, 30);
+                gc.setGlobalAlpha(1.0);
+            }
+
+            gc.setFill(Color.rgb(255, 255, 255, alpha));
+            gc.setFont(new javafx.scene.text.Font("Arial", 16));
+
+            gc.setFont(new javafx.scene.text.Font("Arial", 18));
+            gc.fillText(String.valueOf(weapon.getCurrentAmmo()), hudX - 80, hudY - 20);
+
+            gc.setFill(Color.rgb(200, 200, 200, alpha));
+            gc.setFont(new javafx.scene.text.Font("Arial", 14));
+            gc.fillText("/ " + weapon.getTotalAmmo(), hudX - 50, hudY - 20);
+
+        } catch (Exception e) {
+            System.err.println("HUD rendering error: " + e.getMessage());
+            e.printStackTrace();
+        }
+    }
+
+    private Image getWeaponIcon(WeaponType weaponType) {
+        switch (weaponType) {
+            case RIFLE: return rifleIcon;
+            case SHOTGUN: return shotgunIcon;
+            case PISTOL: return pistolIcon;
+            default: return rifleIcon;
+        }
     }
 
     private void drawNatureElements() {

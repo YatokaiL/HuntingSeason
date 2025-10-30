@@ -48,7 +48,7 @@ public class StartScreen {
         Button exitButton = createSimpleButton("EXIT");
         exitButton.setOnAction(e -> exitGame());
 
-        Label controlsInfo = new Label("Controls:\nWASD - movement\nLMB - shoot\nR - reload\nESC - pause menu\n\nWarning: wolves and bears attack!\nMisses reduce health!");
+        Label controlsInfo = new Label("Controls:\nWASD - movement\nLMB - shoot\nR - reload\nMouse wheel - switch weapon\nESC - pause menu\n\nWarning: wolves and bears attack!\nMisses reduce health!");
 
         controlsInfo.setFont(Font.font("Arial", 14));
         controlsInfo.setTextFill(Color.LIGHTGRAY);
