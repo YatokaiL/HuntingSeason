@@ -83,6 +83,13 @@ public class GameStatistics {
         return fired > 0 ? (double) shotsHit.get() / fired * 100 : 0.0;
     }
 
+    public void setScore(int score) { this.score.set(score); }
+    public void setHealth(int health) { this.health.set(health); }
+    public void setGameTime(long gameTime) { this.gameTime.set(gameTime); }
+    public void setShotsFired(int shotsFired) { this.shotsFired.set(shotsFired); }
+    public void setShotsHit(int shotsHit) { this.shotsHit.set(shotsHit); }
+    public void setReloadsCount(int reloadsCount) { this.reloadsCount.set(reloadsCount); }
+
     public int getScore() { return score.get(); }
     public int getHealth() { return health.get(); }
     public long getGameTime() { return gameTime.get(); }

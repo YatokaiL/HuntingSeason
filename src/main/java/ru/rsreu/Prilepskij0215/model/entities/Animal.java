@@ -35,6 +35,10 @@ public class Animal {
         isActive.set(false);
     }
 
+    public void setCreateTime(long createTime) {
+        this.createTime = createTime;
+    }
+
     public int getX() { return x; }
     public int getY() { return y; }
     public AnimalType getType() { return type; }
@@ -43,4 +47,8 @@ public class Animal {
     public long getLifeTime() { return System.currentTimeMillis() - createTime; }
     public int getHealth() { return health; }
     public int getMaxHealth() { return type.getMaxHealth(); }
+
+    public void setHealth(int health) {
+        this.health = health;
+    }
 }

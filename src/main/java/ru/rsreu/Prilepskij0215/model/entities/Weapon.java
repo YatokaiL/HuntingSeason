@@ -39,6 +39,10 @@ public class Weapon {
         return false;
     }
 
+    public void setAmmo(int current, int total) {
+        this.currentAmmo.set(current);
+        this.totalAmmo.set(total);
+    }
     public void addAmmo(int amount) {
         totalAmmo.addAndGet(amount);
     }
