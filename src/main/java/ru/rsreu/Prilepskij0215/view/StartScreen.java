@@ -2,6 +2,7 @@ package ru.rsreu.Prilepskij0215.view;
 
 import javafx.geometry.Pos;
 import javafx.scene.Scene;
+import javafx.scene.control.Alert;
 import javafx.scene.control.Button;
 import javafx.scene.control.Label;
 import javafx.scene.layout.*;
@@ -10,6 +11,8 @@ import javafx.scene.text.Font;
 import javafx.stage.Stage;
 import ru.rsreu.Prilepskij0215.controller.GameController;
 import ru.rsreu.Prilepskij0215.model.core.GameModel;
+
+import java.io.File;
 
 public class StartScreen {
     private final Stage primaryStage;
@@ -45,6 +48,12 @@ public class StartScreen {
         Button startButton = createSimpleButton("START GAME");
         startButton.setOnAction(e -> startGame());
 
+        Button loadButton = createSimpleButton("LOAD GAME");
+        loadButton.setOnAction(e -> loadGame());
+
+        File saveFile = new File("saves/manual_save.sav");
+        loadButton.setDisable(!saveFile.exists());
+
         Button exitButton = createSimpleButton("EXIT");
         exitButton.setOnAction(e -> exitGame());
 
@@ -56,7 +65,7 @@ public class StartScreen {
 
         VBox buttonBox = new VBox(15);
         buttonBox.setAlignment(Pos.CENTER);
-        buttonBox.getChildren().addAll(startButton, exitButton, controlsInfo);
+        buttonBox.getChildren().addAll(startButton, loadButton, exitButton, controlsInfo);
 
         root.getChildren().addAll(title, subtitle, buttonBox);
 
@@ -64,6 +73,31 @@ public class StartScreen {
         primaryStage.setScene(scene);
         primaryStage.setTitle("Сезон охоты");
         primaryStage.show();
+    }
+
+    private void loadGame() {
+        try {
+            GameModel gameModel = new GameModel();
+            GameController newController = new GameController(gameModel);
+
+            GameInterface gameInterface = new GameInterface(primaryStage, newController);
+
+            newController.loadGame("manual_save");
+
+            gameInterface.show();
+
+        } catch (Exception e) {
+            e.printStackTrace();
+            showAlert("Ошибка загрузки", "Не удалось загрузить игру: " + e.getMessage());
+        }
+    }
+
+    private void showAlert(String title, String message) {
+        Alert alert = new Alert(Alert.AlertType.ERROR);
+        alert.setTitle(title);
+        alert.setHeaderText(null);
+        alert.setContentText(message);
+        alert.showAndWait();
     }
 
     private Button createSimpleButton(String text) {

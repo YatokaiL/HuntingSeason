@@ -104,14 +104,27 @@ public class GameInterface implements GameEventListener {
         title.setStyle("-fx-font-weight: bold;");
 
         Button resumeButton = createMenuButton("RESUME");
+        Button saveButton = createMenuButton("SAVE GAME");
+        Button loadButton = createMenuButton("LOAD GAME");
         Button mainMenuButton = createMenuButton("MAIN MENU");
         Button exitButton = createMenuButton("EXIT GAME");
 
         resumeButton.setOnAction(e -> resumeGame());
+        saveButton.setOnAction(e -> {
+            controller.saveGame("manual_save");
+            showMessage("Game saved successfully!");
+        });
+
+        loadButton.setOnAction(e -> {
+            controller.loadGame("manual_save");
+            showMessage("Game loaded successfully!");
+            updateGameState();
+        });
+
         mainMenuButton.setOnAction(e -> returnToMainMenu());
         exitButton.setOnAction(e -> exitGame());
 
-        pauseMenu.getChildren().addAll(title, resumeButton, mainMenuButton, exitButton);
+        pauseMenu.getChildren().addAll(title, resumeButton, saveButton, loadButton, mainMenuButton, exitButton);
 
         StackPane.setAlignment(pauseMenu, Pos.CENTER);
 
@@ -358,6 +371,23 @@ public class GameInterface implements GameEventListener {
                 case GAME_STATE_UPDATE:
                     scoreLabel.setText("Score: " + event.getX());
                     healthLabel.setText("Health: " + event.getY());
+                    break;
+                case GAME_LOADED:
+                    updateGameState();
+                    showMessage("Game loaded successfully!");
+
+                    if (gameCanvas != null && gameCanvas.getCanvas() != null) {
+                        gameCanvas.getCanvas().requestFocus();
+                    }
+                    break;
+                case GAME_SAVED:
+                    showMessage("Game saved successfully!");
+                    break;
+                case LOAD_ERROR:
+                    showMessage("Error loading game!");
+                    break;
+                case SAVE_ERROR:
+                    showMessage("Error saving game!");
                     break;
             }
         });
