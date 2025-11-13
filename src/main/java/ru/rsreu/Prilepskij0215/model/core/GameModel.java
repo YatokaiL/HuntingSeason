@@ -291,6 +291,176 @@ public class GameModel {
         }
     }
 
+    public void saveGame(String filename) {
+        try {
+            GameSaveData saveData = createSaveData();
+
+            try (ObjectOutputStream oos = new ObjectOutputStream(
+                    new FileOutputStream("saves/" + filename + ".sav"))) {
+                oos.writeObject(saveData);
+                logger.info("Game saved successfully: " + filename);
+
+                GameEvent saveEvent = new GameEvent(EventType.GAME_SAVED);
+                notifyEventListeners(saveEvent);
+            }
+
+        } catch (IOException e) {
+            logger.severe("Failed to save game: " + e.getMessage());
+        }
+    }
+
+    public void loadGame(String filename) {
+        File file = new File("saves/" + filename + ".sav");
+
+        if (!file.exists()) {
+            logger.severe("Save file does not exist: " + file.getAbsolutePath());
+            GameEvent errorEvent = new GameEvent(EventType.LOAD_ERROR);
+            notifyEventListeners(errorEvent);
+            return;
+        }
+
+        try {
+            GameSaveData saveData;
+            try (ObjectInputStream ois = new ObjectInputStream(
+                    new FileInputStream(file))) {
+                saveData = (GameSaveData) ois.readObject();
+            }
+
+            restoreFromSaveData(saveData);
+
+            startGameWithoutReset();
+
+            logger.info("Game loaded successfully: " + filename);
+
+            GameEvent loadEvent = new GameEvent(EventType.GAME_LOADED);
+            notifyEventListeners(loadEvent);
+
+        } catch (IOException | ClassNotFoundException e) {
+            logger.severe("Failed to load game: " + e.getMessage());
+            e.printStackTrace();
+
+            GameEvent errorEvent = new GameEvent(EventType.LOAD_ERROR);
+            notifyEventListeners(errorEvent);
+        }
+    }
+
+    private void startGameWithoutReset() {
+        if (isRunning.compareAndSet(false, true)) {
+            logger.info("Starting game without reset");
+            isPaused.set(false);
+            startAnimalSimulation();
+            startResourceGeneration();
+            startEventProcessing();
+            startObjectInfoCollection();
+            logger.info("Game started successfully (without reset)");
+        } else {
+            logger.warning("Attempt to start already running game");
+        }
+    }
+
+    private GameSaveData createSaveData() {
+        GameSaveData saveData = new GameSaveData();
+
+        Hunter hunter = gameMap.getHunter();
+        saveData.setHunterX(hunter.getX());
+        saveData.setHunterY(hunter.getY());
+        saveData.setCurrentWeapon(hunter.getWeapon().getType());
+
+        var weapons = hunter.getAllWeapons();
+        saveData.setRifleAmmo(weapons.get(WeaponType.RIFLE).getCurrentAmmo());
+        saveData.setRifleTotalAmmo(weapons.get(WeaponType.RIFLE).getTotalAmmo());
+        saveData.setShotgunAmmo(weapons.get(WeaponType.SHOTGUN).getCurrentAmmo());
+        saveData.setShotgunTotalAmmo(weapons.get(WeaponType.SHOTGUN).getTotalAmmo());
+        saveData.setPistolAmmo(weapons.get(WeaponType.PISTOL).getCurrentAmmo());
+        saveData.setPistolTotalAmmo(weapons.get(WeaponType.PISTOL).getTotalAmmo());
+
+        List<AnimalSaveData> animalData = new ArrayList<>();
+        for (Animal animal : gameMap.getAnimals()) {
+            AnimalSaveData animalSave = new AnimalSaveData();
+            animalSave.setX(animal.getX());
+            animalSave.setY(animal.getY());
+            animalSave.setType(animal.getType());
+            animalSave.setHealth(animal.getHealth());
+            animalSave.setActive(animal.isActive());
+            animalSave.setCreateTime(animal.getCreateTime());
+            animalData.add(animalSave);
+        }
+        saveData.setAnimals(animalData);
+
+        List<BonusSaveData> bonusData = new ArrayList<>();
+        for (Bonus bonus : gameMap.getBonuses()) {
+            BonusSaveData bonusSave = new BonusSaveData();
+            bonusSave.setX(bonus.getX());
+            bonusSave.setY(bonus.getY());
+            bonusSave.setType(bonus.getType());
+            bonusData.add(bonusSave);
+        }
+        saveData.setBonuses(bonusData);
+
+        saveData.setScore(statistics.getScore());
+        saveData.setHealth(statistics.getHealth());
+        saveData.setGameTime(statistics.getGameTime());
+        saveData.setShotsFired(statistics.getShotsFired());
+        saveData.setShotsHit(statistics.getShotsHit());
+        saveData.setReloadsCount(statistics.getReloadsCount());
+
+        return saveData;
+    }
+
+    private void restoreFromSaveData(GameSaveData saveData) {
+        Hunter hunter = gameMap.getHunter();
+        hunter.move(saveData.getHunterX(), saveData.getHunterY());
+        hunter.switchWeapon(saveData.getCurrentWeapon());
+
+        var weapons = hunter.getAllWeapons();
+        weapons.get(WeaponType.RIFLE).setAmmo(saveData.getRifleAmmo(), saveData.getRifleTotalAmmo());
+        weapons.get(WeaponType.SHOTGUN).setAmmo(saveData.getShotgunAmmo(), saveData.getShotgunTotalAmmo());
+        weapons.get(WeaponType.PISTOL).setAmmo(saveData.getPistolAmmo(), saveData.getPistolTotalAmmo());
+
+        gameMap.getAnimals().clear();
+        for (AnimalSaveData animalSave : saveData.getAnimals()) {
+            Animal animal = new Animal(animalSave.getX(), animalSave.getY(), animalSave.getType());
+            animal.setHealth(animalSave.getHealth());
+            if (!animalSave.isActive()) {
+                animal.deactivate();
+            }
+            animal.setCreateTime(animalSave.getCreateTime());
+            gameMap.getAnimals().add(animal);
+        }
+
+        gameMap.getBonuses().clear();
+        for (BonusSaveData bonusSave : saveData.getBonuses()) {
+            Bonus bonus = new Bonus(bonusSave.getX(), bonusSave.getY(), bonusSave.getType());
+            gameMap.getBonuses().add(bonus);
+        }
+
+        statistics.setScore(saveData.getScore());
+        statistics.setHealth(saveData.getHealth());
+        statistics.setGameTime(saveData.getGameTime());
+        statistics.setShotsFired(saveData.getShotsFired());
+        statistics.setShotsHit(saveData.getShotsHit());
+        statistics.setReloadsCount(saveData.getReloadsCount());
+
+        logger.info("Game state restored from save data");
+
+        restartAnimalSimulation();
+    }
+    private void restartAnimalSimulation() {
+        logger.config("Restarting animal simulation after load");
+
+        shutdownExecutors();
+
+        this.gameExecutor = Executors.newCachedThreadPool();
+        this.resourceGenerationExecutor = Executors.newScheduledThreadPool(1);
+
+        startAnimalSimulation();
+        startResourceGeneration();
+        startEventProcessing();
+        startObjectInfoCollection();
+
+        logger.config("Animal simulation restarted successfully");
+    }
+
     private double calculateAccuracy(double distance, WeaponType weaponType) {
         double baseAccuracy = weaponType.getAccuracy();
 

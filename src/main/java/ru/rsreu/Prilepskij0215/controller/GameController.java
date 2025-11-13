@@ -93,6 +93,16 @@ public class GameController {
         );
     }
 
+    public void saveGame(String filename) {
+        logger.info("Controller: saving game to " + filename);
+        gameModel.saveGame(filename);
+    }
+
+    public void loadGame(String filename) {
+        logger.info("Controller: loading game from " + filename);
+        gameModel.loadGame(filename);
+    }
+
     public GameModel getGameModel() {
         return gameModel;
     }
